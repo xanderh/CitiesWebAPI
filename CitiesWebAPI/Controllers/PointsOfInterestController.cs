@@ -4,66 +4,101 @@ using System.Linq;
 using System.Threading.Tasks;
 using CitiesWebAPI.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CitiesWebAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/poi")]
     [ApiController]
     public class PointsOfInterestController : ControllerBase
     {
-        private List<City> _cities = new List<City>()
-            {
-                new City(){Id=1,Name="Odense", Description="Brånner!", PointsOfInterest=new List<PointOfInterest>{ new PointOfInterest(){ Id = 1, Name = "Brandts", Description = "Kunst!" }, new PointOfInterest(){ Id = 2, Name = "H. C. Andersens hus", Description = "Kultur!" } } },
-                new City(){Id=2,Name="Aalborg", Description="prlør!", PointsOfInterest= new List<PointOfInterest>{ new PointOfInterest(){ Id=3, Name="Vandtårnet", Description="Der er fucking meget vand"}, new PointOfInterest(){ Id = 4, Name = "Friluftsbadet", Description = "Der er endnu mere vand" } } }
-            };
 
-        [Route("PointsOfInterest/{id}")]
-        public IActionResult GetPointsOfInterest(int id)
+        private readonly DataContext _db;
+        public PointsOfInterestController(DataContext db)
         {
-            if(!_cities.Exists(x=> x.Id == id)) {
-                return NotFound();
-            }
-            return new OkObjectResult(_cities.FirstOrDefault(x => x.Id == id).PointsOfInterest);
+            _db = db;
         }
 
-        [Route("PointOfInterest/{cityId}/{poiId}")]
-        public IActionResult GetPointOfInterest(int cityId, int poiId)
+        [Route("pois/{id}")]
+        public IActionResult GetPointsOfInterest(int id)
         {
-            if (!_cities.Exists(x => x.Id == cityId) || !_cities.FirstOrDefault(x => x.Id == cityId).PointsOfInterest.Exists(x => x.Id == poiId))
+            var cities = _db.Cities.ToList();
+            if(!cities.Exists(x=> x.Id == id)) {
+                return NotFound();
+            }
+            return new OkObjectResult(_db.PointsOfInterest.Where(x => x.CityId == id));
+        }
+
+        [Route("poi/{poiId}")]
+        public IActionResult GetPointOfInterest(int poiId)
+        {
+            var pois = _db.PointsOfInterest.ToList();
+            if (!pois.Exists(x => x.Id == poiId))
             {
                 return NotFound();
             }
-            return new OkObjectResult(_cities.FirstOrDefault(x => x.Id == cityId).PointsOfInterest.FirstOrDefault(x => x.Id == poiId));
+            return new OkObjectResult(_db.PointsOfInterest.FirstOrDefault(x => x.Id == poiId));
+        }
+
+        [Route("pois")]
+        public IActionResult GetPointsOfInterest()
+        {
+            var pois = _db.PointsOfInterest.ToList();
+            return new OkObjectResult(_db.PointsOfInterest.ToList());
         }
 
         [HttpPost]
         [Route("Create/{id}")]
         public IActionResult CreatePoi(int id, PointOfInterest poi)
         {
-            _cities.FirstOrDefault(x => x.Id == id).PointsOfInterest.Add(poi);
+            poi.CityId = id;
+            _db.PointsOfInterest.Add(poi);
+            _db.SaveChanges();
             return CreatedAtAction("CreatePoi", poi);
         }
 
         [HttpDelete]
-        [Route("Delete/{cityId}/{poiId}")]
-        public IActionResult DeleteCity(int cityId, int poiId)
+        [Route("Delete/{poiId}")]
+        public IActionResult DeletePOI(int poiId)
         {
-            _cities.FirstOrDefault(x => x.Id == cityId).PointsOfInterest.RemoveAll(x => x.Id == poiId);
+            var poi = _db.PointsOfInterest.FirstOrDefault(x => x.Id == poiId);
+            if(poi is null)
+            {
+                return NotFound();
+            }
+            _db.PointsOfInterest.Remove(poi);
+            _db.SaveChanges();
             return Ok();
         }
 
         [HttpPut]
-        [Route("Update/{id}")]
-        public IActionResult Update(int id, PointOfInterest poi)
+        [Route("Update")]
+        public IActionResult Update(PointOfInterest poi)
         {
-            if (!_cities.Exists(x => x.Id == id))
+            var oldPoi = _db.PointsOfInterest.FirstOrDefault(x => x.Id == poi.Id);
+            if (oldPoi is null)
             {
                 return NotFound();
             }
-            City city = _cities.FirstOrDefault(x => x.Id == id);
-            PointOfInterest oldPoi = city.PointsOfInterest.FirstOrDefault(x => x.Id == poi.Id);
-            oldPoi = poi;
+            _db.Entry(oldPoi).CurrentValues.SetValues(poi);
+            _db.SaveChanges();
+            return Ok();
+        }
+
+        [HttpPatch]
+        [Route("Update/{id}")]
+        public IActionResult Patch(JsonPatchDocument<PointOfInterest> poiPatch, int id)
+        {
+            var oldPOI = _db.PointsOfInterest.FirstOrDefault(x => x.Id == id);
+            if (oldPOI is null)
+            {
+                return NotFound();
+            }
+            poiPatch.ApplyTo(oldPOI);
+            _db.Update(oldPOI);
+            _db.SaveChanges();
+
             return Ok();
         }
     }

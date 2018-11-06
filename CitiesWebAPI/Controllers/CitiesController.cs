@@ -2,9 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
+using CitiesWebAPI.DTOs;
 using CitiesWebAPI.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace CitiesWebAPI.Controllers
 {
@@ -12,46 +16,46 @@ namespace CitiesWebAPI.Controllers
     [ApiController]
     public class CitiesController : ControllerBase
     {
-        private List<City> _cities = new List<City>()
-            {
-                new City(){Id=1,Name="Odense", Description="Brånner!", PointsOfInterest=new List<PointOfInterest>{ new PointOfInterest(){ Id = 1, Name = "Brandts", Description = "Kunst!" }, new PointOfInterest(){ Id = 2, Name = "H. C. Andersens hus", Description = "Kultur!" } } },
-                new City(){Id=2,Name="Aalborg", Description="prlør!", PointsOfInterest= new List<PointOfInterest>{ new PointOfInterest(){ Id=3, Name="Vandtårnet", Description="Der er fucking meget vand"}, new PointOfInterest(){ Id = 4, Name = "Friluftsbadet", Description = "Der er endnu mere vand" } } }
-            };
-        public CitiesController()
+        private readonly DataContext _db;
+        private readonly IMapper _mapper;
+        public CitiesController(DataContext db, IMapper mapper)
         {
-
+            _mapper = mapper;
+            _db = db;
         }
 
         [Route("Cities")]
         public IActionResult GetCities(bool ShouldGetPointsOfInterest = false)
         {
-            List<City> cities = _cities;
+            List<City> cities = _db.Cities.ToList();
             if (!ShouldGetPointsOfInterest)
             {
-                return new ObjectResult(cities.Select(x => new { x.Id, x.Name, x.Description }));
+                return new ObjectResult(_mapper.Map<List<CityDTO>>(cities));
             }
-            return new ObjectResult(cities);
+            return new ObjectResult(_mapper.Map<List<CityDetailedDTO>>(_db.Cities.Include(x => x.PointOfInterests)));
         }
 
         [Route("City/{id}")]
         public IActionResult GetCity(int id, bool ShouldGetPointsOfInterest = false)
         {
-            if (!_cities.Exists(x => x.Id == id))
+            List<City> cities = _db.Cities.ToList();
+            if (!cities.Exists(x => x.Id == id))
             {
                 return NotFound();
             }
             if (!ShouldGetPointsOfInterest)
             {
-                return new ObjectResult(_cities.FindAll(x => x.Id == id).Select(x => new { x.Id, x.Name, x.Description }));
+                return new ObjectResult(cities.FindAll(x => x.Id == id).Select(x => new { x.Id, x.Name, x.Description }));
             }
-            return new ObjectResult(_cities.FirstOrDefault(x => x.Id == id));
+            return new ObjectResult(_db.Cities.Where(x => x.Id == id).Include(x => x.PointOfInterests));
         }
 
         [HttpPost]
         [Route("Create")]
         public IActionResult CreateCity(City city)
         {
-            _cities.Add(city);
+            _db.Cities.Add(city);
+            _db.SaveChanges();
             return CreatedAtAction("CreateCity", city);
         }
 
@@ -59,7 +63,13 @@ namespace CitiesWebAPI.Controllers
         [Route("Delete/{id}")]
         public IActionResult DeleteCity(int id)
         {
-            _cities.RemoveAll(x => x.Id == id);
+            var city = _db.Cities.FirstOrDefault(x => x.Id == id);
+            if(city is null)
+            {
+                return NotFound();
+            }
+            _db.Cities.Remove(city);
+            _db.SaveChanges();
             return Ok();
         }
 
@@ -67,12 +77,30 @@ namespace CitiesWebAPI.Controllers
         [Route("Update")]
         public IActionResult Update(City city)
         {
-            if(!_cities.Exists(x => x.Id == city.Id))
+            List<City> cities = _db.Cities.ToList();
+            if (!cities.Exists(x => x.Id == city.Id))
             {
                 return NotFound();
             }
-            City oldCity = _cities.FirstOrDefault(x => x.Id == city.Id);
-            oldCity = city;
+            City oldCity = _db.Cities.FirstOrDefault(x => x.Id == city.Id);
+            _db.Entry(oldCity).CurrentValues.SetValues(city);
+            _db.SaveChanges();
+            return Ok();
+        }
+
+        [HttpPatch]
+        [Route("Update/{id}")]
+        public IActionResult Patch(JsonPatchDocument<City> cityPatch, int id)
+        {
+            var oldCity = _db.Cities.FirstOrDefault(x => x.Id == id);
+            if(oldCity is null)
+            {
+                return NotFound();
+            }
+            cityPatch.ApplyTo(oldCity);
+            _db.Update(oldCity);
+            _db.SaveChanges();
+
             return Ok();
         }
     }
