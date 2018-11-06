@@ -11,6 +11,6 @@ namespace CitiesWebAPI.Models
         public string Name { get; set; }
         public string Description { get; set; }
 
-        public List<PointOfInterest> PointsOfInterest { get; set; }
+        public List<PointOfInterest> PointOfInterests { get; set; }
     }
 }
