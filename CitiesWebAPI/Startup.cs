@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using AutoMapper;
+using Swashbuckle.AspNetCore.Swagger;
 
 namespace CitiesWebAPI
 {
@@ -34,7 +35,11 @@ namespace CitiesWebAPI
                 options.UseSqlServer(connectionString);
             });
             services.AddAutoMapper();
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1).AddXmlSerializerFormatters();
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Info { Title = "Cities API", Version = "v1" });
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -49,6 +54,9 @@ namespace CitiesWebAPI
                 app.UseHsts();
             }
 
+            app.UseStaticFiles();
+            app.UseSwagger();
+            app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cities API V1"));
             app.UseHttpsRedirection();
             app.UseMvc();
         }
