@@ -24,26 +24,28 @@ namespace CitiesWebAPI.Controllers
             _db = db;
         }
 
+        [HttpGet]
         [Route("Cities")]
-        public IActionResult GetCities(bool ShouldGetPointsOfInterest = false)
+        public IActionResult GetCities(bool getPOI = false)
         {
             List<City> cities = _db.Cities.ToList();
-            if (!ShouldGetPointsOfInterest)
+            if (!getPOI)
             {
                 return new ObjectResult(_mapper.Map<List<CityDTO>>(cities));
             }
             return new ObjectResult(_mapper.Map<List<CityDetailedDTO>>(_db.Cities.Include(x => x.PointOfInterests)));
         }
 
+        [HttpGet]
         [Route("City/{id}")]
-        public IActionResult GetCity(int id, bool ShouldGetPointsOfInterest = false)
+        public IActionResult GetCity(int id, bool getPOI = false)
         {
             List<City> cities = _db.Cities.ToList();
             if (!cities.Exists(x => x.Id == id))
             {
                 return NotFound();
             }
-            if (!ShouldGetPointsOfInterest)
+            if (!getPOI)
             {
                 return new ObjectResult(cities.FindAll(x => x.Id == id).Select(x => new { x.Id, x.Name, x.Description }));
             }
