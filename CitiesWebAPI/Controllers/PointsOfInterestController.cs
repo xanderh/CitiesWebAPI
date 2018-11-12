@@ -20,6 +20,7 @@ namespace CitiesWebAPI.Controllers
             _db = db;
         }
 
+        [HttpGet]
         [Route("pois/{id}")]
         public IActionResult GetPointsOfInterest(int id)
         {
@@ -30,6 +31,7 @@ namespace CitiesWebAPI.Controllers
             return new OkObjectResult(_db.PointsOfInterest.Where(x => x.CityId == id));
         }
 
+        [HttpGet]
         [Route("poi/{poiId}")]
         public IActionResult GetPointOfInterest(int poiId)
         {
@@ -41,6 +43,7 @@ namespace CitiesWebAPI.Controllers
             return new OkObjectResult(_db.PointsOfInterest.FirstOrDefault(x => x.Id == poiId));
         }
 
+        [HttpGet]
         [Route("pois")]
         public IActionResult GetPointsOfInterest()
         {
