@@ -6,6 +6,7 @@ using CitiesWebAPI.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace CitiesWebAPI.Controllers
 {
@@ -13,11 +14,12 @@ namespace CitiesWebAPI.Controllers
     [ApiController]
     public class PointsOfInterestController : ControllerBase
     {
-
+        private readonly UnitOfWork _unitOfWork;
         private readonly DataContext _db;
-        public PointsOfInterestController(DataContext db)
+        public PointsOfInterestController(DataContext db, UnitOfWork unitOfWork)
         {
             _db = db;
+            _unitOfWork = unitOfWork;
         }
 
         [HttpGet]
@@ -25,10 +27,11 @@ namespace CitiesWebAPI.Controllers
         public IActionResult GetPointsOfInterest(int id)
         {
             var cities = _db.Cities.ToList();
-            if(!cities.Exists(x=> x.Id == id)) {
+            if (_unitOfWork.Cities.Get(id) is null)
+            {
                 return NotFound();
             }
-            return new OkObjectResult(_db.PointsOfInterest.Where(x => x.CityId == id));
+            return new OkObjectResult(_unitOfWork.PointsOfInterest.GetPOIsByCity(id));
         }
 
         [HttpGet]
@@ -36,19 +39,18 @@ namespace CitiesWebAPI.Controllers
         public IActionResult GetPointOfInterest(int poiId)
         {
             var pois = _db.PointsOfInterest.ToList();
-            if (!pois.Exists(x => x.Id == poiId))
+            if (_unitOfWork.PointsOfInterest.Get(poiId) is null)
             {
                 return NotFound();
             }
-            return new OkObjectResult(_db.PointsOfInterest.FirstOrDefault(x => x.Id == poiId));
+            return new OkObjectResult(_unitOfWork.PointsOfInterest.Get(poiId));
         }
 
         [HttpGet]
         [Route("pois")]
         public IActionResult GetPointsOfInterest()
         {
-            var pois = _db.PointsOfInterest.ToList();
-            return new OkObjectResult(_db.PointsOfInterest.ToList());
+            return new OkObjectResult(_unitOfWork.PointsOfInterest.GetAll());
         }
 
         [HttpPost]
@@ -56,53 +58,82 @@ namespace CitiesWebAPI.Controllers
         public IActionResult CreatePoi(int id, PointOfInterest poi)
         {
             poi.CityId = id;
-            _db.PointsOfInterest.Add(poi);
-            _db.SaveChanges();
-            return CreatedAtAction("CreatePoi", poi);
+            _unitOfWork.PointsOfInterest.Add(poi);
+            try
+            {
+
+                _unitOfWork.Complete();
+                return CreatedAtAction("CreatePoi", poi);
+            }
+            catch (Exception)
+            {
+                return Conflict();
+            }
         }
 
         [HttpDelete]
         [Route("Delete/{poiId}")]
         public IActionResult DeletePOI(int poiId)
         {
-            var poi = _db.PointsOfInterest.FirstOrDefault(x => x.Id == poiId);
-            if(poi is null)
+            var poi = _unitOfWork.PointsOfInterest.Get(poiId);
+            if (poi is null)
             {
                 return NotFound();
             }
-            _db.PointsOfInterest.Remove(poi);
-            _db.SaveChanges();
-            return Ok();
+            try
+            {
+                _unitOfWork.PointsOfInterest.Remove(poi);
+                _unitOfWork.Complete();
+                return Ok();
+            }
+            catch (Exception)
+            {
+                return Conflict();
+            }
         }
 
         [HttpPut]
         [Route("Update")]
         public IActionResult Update(PointOfInterest poi)
         {
-            var oldPoi = _db.PointsOfInterest.FirstOrDefault(x => x.Id == poi.Id);
+            PointOfInterest oldPoi = _unitOfWork.PointsOfInterest.Get(poi.Id);
             if (oldPoi is null)
             {
                 return NotFound();
             }
-            _db.Entry(oldPoi).CurrentValues.SetValues(poi);
-            _db.SaveChanges();
-            return Ok();
+            oldPoi.CityId = poi.CityId;
+            oldPoi.Description = poi.Description;
+            oldPoi.Name = poi.Name;
+            try
+            {
+                _unitOfWork.Complete();
+                return Ok();
+            }
+            catch (Exception)
+            {
+                return Conflict();
+            }
         }
 
         [HttpPatch]
         [Route("Update/{id}")]
         public IActionResult Patch(JsonPatchDocument<PointOfInterest> poiPatch, int id)
         {
-            var oldPOI = _db.PointsOfInterest.FirstOrDefault(x => x.Id == id);
+            var oldPOI = _unitOfWork.PointsOfInterest.Get(id);
             if (oldPOI is null)
             {
                 return NotFound();
             }
-            poiPatch.ApplyTo(oldPOI);
-            _db.Update(oldPOI);
-            _db.SaveChanges();
-
-            return Ok();
+            try
+            {
+                poiPatch.ApplyTo(oldPOI);
+                _unitOfWork.Complete();
+                return Ok();
+            }
+            catch (Exception)
+            {
+                return Conflict();
+            }
         }
     }
 }

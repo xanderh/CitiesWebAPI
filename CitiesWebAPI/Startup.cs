@@ -35,6 +35,7 @@ namespace CitiesWebAPI
                 options.UseSqlServer(connectionString);
             });
             services.AddAutoMapper();
+            services.AddTransient<UnitOfWork>();
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1).AddXmlSerializerFormatters();
             services.AddSwaggerGen(c =>
             {
