@@ -16,48 +16,46 @@ namespace CitiesWebAPI.Controllers
     [ApiController]
     public class CitiesController : ControllerBase
     {
-        private readonly DataContext _db;
         private readonly IMapper _mapper;
-        public CitiesController(DataContext db, IMapper mapper)
+        private readonly UnitOfWork _unitOfWork;
+        public CitiesController(IMapper mapper, UnitOfWork unitOfWork)
         {
             _mapper = mapper;
-            _db = db;
+            _unitOfWork = unitOfWork;
         }
 
         [HttpGet]
         [Route("Cities")]
         public IActionResult GetCities(bool getPOI = false)
         {
-            List<City> cities = _db.Cities.ToList();
             if (!getPOI)
             {
-                return new ObjectResult(_mapper.Map<List<CityDTO>>(cities));
+                return new ObjectResult(_mapper.Map<List<CityDTO>>(_unitOfWork.Cities.GetCitiesWithoutPOIs()));
             }
-            return new ObjectResult(_mapper.Map<List<CityDetailedDTO>>(_db.Cities.Include(x => x.PointOfInterests)));
+            return new ObjectResult(_mapper.Map<List<CityDetailedDTO>>(_unitOfWork.Cities.GetCitiesWithPOIs()));
         }
 
         [HttpGet]
         [Route("City/{id}")]
         public IActionResult GetCity(int id, bool getPOI = false)
         {
-            List<City> cities = _db.Cities.ToList();
-            if (!cities.Exists(x => x.Id == id))
+            if (_unitOfWork.Cities.Get(id) is null)
             {
                 return NotFound();
             }
             if (!getPOI)
             {
-                return new ObjectResult(cities.FindAll(x => x.Id == id).Select(x => new { x.Id, x.Name, x.Description }));
+                return new ObjectResult(_mapper.Map<List<CityDTO>>(_unitOfWork.Cities.GetCityWithoutPOIs(id)));
             }
-            return new ObjectResult(_db.Cities.Where(x => x.Id == id).Include(x => x.PointOfInterests));
+            return new ObjectResult(_mapper.Map<List<CityDetailedDTO>>(_unitOfWork.Cities.GetCityWithPOIs(id)));
         }
 
         [HttpPost]
         [Route("Create")]
         public IActionResult CreateCity(City city)
         {
-            _db.Cities.Add(city);
-            _db.SaveChanges();
+            _unitOfWork.Cities.Add(city);
+            _unitOfWork.Complete();
             return CreatedAtAction("CreateCity", city);
         }
 
@@ -65,45 +63,64 @@ namespace CitiesWebAPI.Controllers
         [Route("Delete/{id}")]
         public IActionResult DeleteCity(int id)
         {
-            var city = _db.Cities.FirstOrDefault(x => x.Id == id);
-            if(city is null)
+            var city = _unitOfWork.Cities.Get(id);
+            if (city is null)
             {
                 return NotFound();
             }
-            _db.Cities.Remove(city);
-            _db.SaveChanges();
-            return Ok();
+            try
+            {
+                _unitOfWork.Cities.Remove(city);
+                _unitOfWork.Complete();
+                return Ok();
+            }
+            catch (Exception)
+            {
+                return Conflict();
+            }
         }
 
         [HttpPut]
         [Route("Update")]
         public IActionResult Update(City city)
         {
-            List<City> cities = _db.Cities.ToList();
-            if (!cities.Exists(x => x.Id == city.Id))
+            if (_unitOfWork.Cities.Get(city.Id) is null)
             {
                 return NotFound();
             }
-            City oldCity = _db.Cities.FirstOrDefault(x => x.Id == city.Id);
-            _db.Entry(oldCity).CurrentValues.SetValues(city);
-            _db.SaveChanges();
-            return Ok();
+            City oldCity = _unitOfWork.Cities.Get(city.Id);
+            try
+            {
+                oldCity.Name = city.Name;
+                oldCity.Description = city.Description;
+                _unitOfWork.Complete();
+                return Ok();
+            }
+            catch (Exception)
+            {
+                return Conflict();
+            }
         }
 
         [HttpPatch]
         [Route("Update/{id}")]
         public IActionResult Patch(JsonPatchDocument<City> cityPatch, int id)
         {
-            var oldCity = _db.Cities.FirstOrDefault(x => x.Id == id);
-            if(oldCity is null)
+            var oldCity = _unitOfWork.Cities.Get(id);
+            if (oldCity is null)
             {
                 return NotFound();
             }
-            cityPatch.ApplyTo(oldCity);
-            _db.Update(oldCity);
-            _db.SaveChanges();
-
-            return Ok();
+            try
+            {
+                cityPatch.ApplyTo(oldCity);
+                _unitOfWork.Complete();
+                return Ok();
+            }
+            catch (Exception)
+            {
+                return Conflict();
+            }
         }
     }
 }
