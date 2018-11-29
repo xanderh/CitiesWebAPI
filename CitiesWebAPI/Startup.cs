@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using AutoMapper;
 using Swashbuckle.AspNetCore.Swagger;
+using Microsoft.AspNetCore.Identity;
 
 namespace CitiesWebAPI
 {
@@ -35,6 +36,13 @@ namespace CitiesWebAPI
                 options.UseSqlServer(connectionString);
             });
             services.AddAutoMapper();
+
+            services.AddIdentity<User, IdentityRole>().AddEntityFrameworkStores<DataContext>();
+            services.Configure<IdentityOptions>(config =>
+            {
+
+            });
+
             services.AddTransient<UnitOfWork>();
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1).AddXmlSerializerFormatters();
             services.AddSwaggerGen(c =>

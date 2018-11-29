@@ -5,7 +5,9 @@ using System.Threading.Tasks;
 using AutoMapper;
 using CitiesWebAPI.DTOs;
 using CitiesWebAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +20,13 @@ namespace CitiesWebAPI.Controllers
     {
         private readonly IMapper _mapper;
         private readonly UnitOfWork _unitOfWork;
-        public CitiesController(IMapper mapper, UnitOfWork unitOfWork)
+        private readonly UserManager<User> _userManager;
+
+        public CitiesController(IMapper mapper, UnitOfWork unitOfWork, UserManager<User> userManager)
         {
             _mapper = mapper;
             _unitOfWork = unitOfWork;
+            _userManager = userManager;
         }
 
         [HttpGet]
@@ -50,6 +55,7 @@ namespace CitiesWebAPI.Controllers
             return new ObjectResult(_mapper.Map<List<CityDetailedDTO>>(_unitOfWork.Cities.GetCityWithPOIs(id)));
         }
 
+        [Authorize]
         [HttpPost]
         [Route("Create")]
         public IActionResult CreateCity(City city)
@@ -59,6 +65,7 @@ namespace CitiesWebAPI.Controllers
             return CreatedAtAction("CreateCity", city);
         }
 
+        [Authorize]
         [HttpDelete]
         [Route("Delete/{id}")]
         public IActionResult DeleteCity(int id)
@@ -80,6 +87,7 @@ namespace CitiesWebAPI.Controllers
             }
         }
 
+        [Authorize]
         [HttpPut]
         [Route("Update")]
         public IActionResult Update(City city)
@@ -102,6 +110,7 @@ namespace CitiesWebAPI.Controllers
             }
         }
 
+        [Authorize]
         [HttpPatch]
         [Route("Update/{id}")]
         public IActionResult Patch(JsonPatchDocument<City> cityPatch, int id)

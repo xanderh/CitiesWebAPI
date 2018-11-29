@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CitiesWebAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
@@ -53,6 +54,7 @@ namespace CitiesWebAPI.Controllers
             return new OkObjectResult(_unitOfWork.PointsOfInterest.GetAll());
         }
 
+        [Authorize]
         [HttpPost]
         [Route("Create/{id}")]
         public IActionResult CreatePoi(int id, PointOfInterest poi)
@@ -71,6 +73,7 @@ namespace CitiesWebAPI.Controllers
             }
         }
 
+        [Authorize]
         [HttpDelete]
         [Route("Delete/{poiId}")]
         public IActionResult DeletePOI(int poiId)
@@ -92,6 +95,7 @@ namespace CitiesWebAPI.Controllers
             }
         }
 
+        [Authorize]
         [HttpPut]
         [Route("Update")]
         public IActionResult Update(PointOfInterest poi)
@@ -115,6 +119,7 @@ namespace CitiesWebAPI.Controllers
             }
         }
 
+        [Authorize]
         [HttpPatch]
         [Route("Update/{id}")]
         public IActionResult Patch(JsonPatchDocument<PointOfInterest> poiPatch, int id)
